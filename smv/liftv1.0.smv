@@ -1,0 +1,298 @@
+/*************************************************************************************
+// FILE: lift.smv
+// Author: Zoltan Dezso - H5JR5B
+// This file contains the implementaion of the lift controller using 
+// SMV Model checker native language.
+*************************************************************************************/
+
+module main (LiftButtons, FloorButtons, State)
+{
+	input LiftButtons: array 0..3 of boolean;
+	input FloorButtons: array 0..5 of boolean;
+	output State: {Ground, GF, First, FS, Second, ST, Third};
+	LiftButtonPressed: boolean;
+	From: {Up, Down};
+	DoorOpen: boolean;
+	CanMove: boolean;
+
+	/* Initialization */
+	init (State) := Ground;
+	init (DoorOpen) := 0;
+	init (LiftButtonPressed) := 0;
+
+	for (i = 0; i < 6; i = i + 1)
+		init (FloorButtons[i]) := 0;
+	for (i = 0; i < 4; i = i + 1)
+		init (LiftButtons[i]) := 0;
+
+	/* State machine */
+	switch (State, DoorOpen)
+	{
+
+		/*****************************************************************************************
+		// 1: Standing on floor with doors open
+		// 2: Standing on floor with doors closed
+		// 	2.1: The lift was guided here
+		//	2.2: The lift was not guided here
+		//		2.2.1: There is another floor the lift is guided to
+		//		2.2.2: There is another floor the lift is requested on
+		//		2.2.3: There is no other place the lift should be 
+		//****************************************************************************************/
+
+		(Ground, 1):
+		{
+			next (DoorOpen) := 0;
+			next (CanMove) := 1;
+		}
+
+		(Ground, 0):
+		{
+			if (LiftButtons[0])
+			{
+				next (DoorOpen) := 1;
+				next (CanMove) := 0;
+				next (LiftButtons[0]) := 0;
+				next (LiftButtonPressed) := 0;
+			}
+			else 
+			{
+				if (LiftButtonPressed)
+				{
+					next (State) := GF;
+				}
+				else if (FloorButtons[0])
+				{
+					next (DoorOpen) := 1;
+					next (CanMove) := 0;
+					next (FloorButtons[0]) := 0;
+				}
+				else if ((FloorButtons[1] | FloorButtons[2] | FloorButtons[3] | FloorButtons[4] | FloorButtons[5]) & CanMove)
+				{
+					next (State) := GF;
+					next (From) := Down;
+				}
+			}
+		}
+
+		(First, 1):
+		{
+			next (DoorOpen) := 0;
+			next (CanMove) := 1;
+		}
+
+		(First, 0):
+		{
+			if (LiftButtons[1])
+			{
+				next (DoorOpen) := 1;
+				next (CanMove) := 0;
+				next (LiftButtons[1]) := 0;
+				next (LiftButtonPressed) := 0;
+			}
+			else 
+			{
+				if (LiftButtons[0])
+				{
+					next (State) := GF;
+					next (From) := Up;
+				}
+				else if (LiftButtons[2] | LiftButtons[3])
+				{
+					next (State) := FS;
+					next (From) := Down;
+				}
+				else if (FloorButtons[1])
+				{
+					if (From = Down)
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+						next (FloorButtons[1]) := 0;
+					}
+					else if ( ~FloorButtons[0] & ~FloorButtons[2] & ~FloorButtons[3] & ~FloorButtons[4] & ~FloorButtons[5])
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+					}
+				}
+				else if (FloorButtons[2])
+				{
+					if (From = Up)
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+						next (FloorButtons[2]) := 0;
+					}
+					else if ( ~FloorButtons[0] & ~FloorButtons[1] & ~FloorButtons[3] & ~FloorButtons[4] & ~FloorButtons[5])
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+					}
+				}
+				else if (((FloorButtons[1] & From = Up) | (FloorButtons[2] & From = Down)) & (~FloorButtons[0] & ~FloorButtons[3] & ~FloorButtons[4] & ~FloorButtons[5]))
+				{
+					next (DoorOpen) := 1;
+					next (CanMove) := 0;
+					if (FloorButtons[1]) next (FloorButtons[1]) := 0;
+					else if (FloorButtons[2]) next (FloorButtons[2]) := 0;
+				}
+				else if ((FloorButtons[3] | FloorButtons[4] | FloorButtons[5]) & CanMove)
+				{
+					next (State) := FS;
+					next (From) := Down;
+				}
+				else if ((FloorButtons[0]) & CanMove)
+				{
+					next (State) := GF;
+					next (From) := Up;
+				}
+			}
+		}
+
+
+		(Second, 1):
+		{
+			next (DoorOpen) := 0;
+			next (CanMove) := 1;
+		}
+
+		(Second, 0):
+		{
+			if (LiftButtons[2])
+			{
+				next (DoorOpen) := 1;
+				next (CanMove) := 0;
+				next (LiftButtons[2]) := 0;
+				next (LiftButtonPressed) := 0;
+			}
+			else 
+			{
+				if (LiftButtons[0] | LiftButtons[1])
+				{
+					next (State) := FS;
+					next (From) := Up;
+				}
+				else if (LiftButtons[3])
+				{
+					next (State) := ST;
+					next (From) := Down;
+				}
+				else if (FloorButtons[3])
+				{
+					if (From = Down)
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+						next (FloorButtons[3]) := 0;
+					}
+					else if ( ~FloorButtons[0] & ~FloorButtons[1] & ~FloorButtons[2] & ~FloorButtons[4] & ~FloorButtons[5])
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+					}
+				}
+				else if (FloorButtons[4])
+				{
+					if (From = Up)
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+						next (FloorButtons[4]) := 0;
+					}
+					else if ( ~FloorButtons[0] & ~FloorButtons[1] & ~FloorButtons[2] & ~FloorButtons[3] & ~FloorButtons[5])
+					{
+						next (DoorOpen) := 1;
+						next (CanMove) := 0;
+					}
+				}
+				else if (((FloorButtons[3] & From = Up) | (FloorButtons[4] & From = Down)) & (~FloorButtons[0] & ~FloorButtons[1] & ~FloorButtons[2] & ~FloorButtons[5]))
+				{
+					next (DoorOpen) := 1;
+					next (CanMove) := 0;
+					if (FloorButtons[3]) next (FloorButtons[3]) := 0;
+					else if (FloorButtons[4]) next (FloorButtons[4]) := 0;
+				}
+				else if (FloorButtons[5] & CanMove)
+				{
+					next (State) := ST;
+					next (From) := Down;
+				}
+				else if ((FloorButtons[0] | FloorButtons[1] | FloorButtons[2]) & CanMove)
+				{
+					next (State) := FS;
+					next (From) := Up;
+				}
+			}
+		}
+
+
+		(Third, 1):
+		{
+			next (DoorOpen) := 0;
+			next (CanMove) := 1;
+		}
+
+		(Third, 0):
+		{
+			if (LiftButtons[3])
+			{
+				next (DoorOpen) := 1;
+				next (CanMove) := 0;
+				next (LiftButtons[3]) := 0;
+				next (LiftButtonPressed) := 0;
+			}
+			else 
+			{
+				if (LiftButtonPressed)
+				{
+					next (State) := ST;
+					next (From)  := Up;
+				}
+				else if (FloorButtons[5])
+				{
+					next (DoorOpen) := 1;
+					next (CanMove) := 0;
+					next (FloorButtons[5]) := 0;
+				}
+				else if ((FloorButtons[0] | FloorButtons[1] | FloorButtons[2] | FloorButtons[3] | FloorButtons[4]) & CanMove)
+				{
+					next (State) := ST;
+					next (From) := Up;
+				}
+			}
+		}
+
+		(GF, 0):
+		{
+			next (State) := (From = Down) ? First : Ground;
+		}
+
+		(FS, 0):
+		{
+			next (State) := (From = Down) ? Second : First;
+		}
+
+		(ST, 0):
+		{
+			next (State) := (From = Down) ? Third : Second;
+		}
+
+	}
+
+	/* LTL expressions to be proved */
+	NoMovingWDoorOpen: assert G (DoorOpen -> ~CanMove);
+
+	NotBeingAtTwoPlaces: assert G ((State = Ground) -> (~(State = GF) & ~(State = First) & ~(State = FS) & ~(State = Second) & ~(State = ST) & ~(State = Third)));
+	NotBeingAtTwoPlaces: assert G ((State = First) -> (~(State = Ground) & ~(State = GF) & ~(State = FS) & ~(State = Second) & ~(State = ST) & ~(State = Third)));
+	NotBeingAtTwoPlaces: assert G ((State = Second) -> (~(State = Ground) & ~(State = GF) & ~(State = First) & ~(State = FS) & ~(State = ST) & ~(State = Third)));
+	NotBeingAtTwoPlaces: assert G ((State = Third) -> (~(State = Ground) & ~(State = GF) & ~(State = First) & ~(State = FS) & ~(State = Second) & ~(State = ST)));
+
+	PressedOn1LiftArrivesOnce: assert G ((FloorButtons[1] | FloorButtons[2]) -> F (State = First & DoorOpen));
+
+	StandingOn2WOPressedWillWait: assert G ((State = Second) & ~(LiftButtons[0] | LiftButtons[1] | LiftButtons[2] | LiftButtons[3] | 
+							      FloorButtons[0] | FloorButtons[1] | FloorButtons[2] | FloorButtons[3] | FloorButtons[4] | FloorButtons[5]) 
+					-> 
+					(State = Second) U ((LiftButtons[0] | LiftButtons[1] | LiftButtons[2] | LiftButtons[3] | 
+							FloorButtons[0] | FloorButtons[1] | FloorButtons[2] | FloorButtons[3] | FloorButtons[4] | FloorButtons[5])));
+
+}
